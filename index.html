@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Dispersion</title>
+<meta name="description" content="A live study of how glass splits white light, rendered in real time by a single fragment shader.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💎</text></svg>">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Dispersion">
+<meta property="og:description" content="A live study of how glass splits white light, rendered in real time by a single fragment shader.">
+<meta property="og:url" content="https://oavivo.github.io/dispersion/">
+<meta property="og:image" content="https://oavivo.github.io/dispersion/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://oavivo.github.io/dispersion/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E6E8EC;
+  --ink:#16181D;
+  --muted:#5C616B;
+  --rule:#C2C7CF;
+  --spectrum:linear-gradient(90deg,#6c3cf0,#2c6dff 16%,#17bfd0 32%,#5fcf45 48%,#f1c22c 64%,#f2702a 80%,#d8304d);
+  --display:"Bricolage Grotesque","Arial Narrow",system-ui,sans-serif;
+  --text:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--paper:#0E1118;--ink:#E8EBF0;--muted:#959CA8;--rule:#2A303B;}
+}
+:root[data-theme="dark"]{--paper:#0E1118;--ink:#E8EBF0;--muted:#959CA8;--rule:#2A303B;}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-snap-type:y proximity;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--text);font-size:1.0625rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;background:var(--paper);touch-action:pan-y}
+main{position:relative;z-index:1}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+/* hero */
+.hero{min-height:100svh;display:flex;align-items:flex-end;padding:0 6vw 9svh;scroll-snap-align:start}
+.hero p{max-width:38ch;margin:0;font-size:1.0625rem}
+.only-touch{display:none}
+@media (hover:none){.only-touch{display:inline}.only-mouse{display:none}}
+
+/* material sections */
+.mat{min-height:100svh;display:grid;align-items:center;padding:12svh 6vw;scroll-snap-align:center}
+.copy{max-width:min(36ch,40vw)}
+h2{font-family:var(--display);font-weight:620;font-stretch:82%;font-size:clamp(2.75rem,6.2vw,5.25rem);line-height:.92;letter-spacing:-.035em;margin:0;font-variation-settings:"opsz" 96}
+.spec{color:var(--muted);font-variant-numeric:tabular-nums;margin:.9rem 0 1.1rem;font-size:.9375rem;line-height:1.45}
+.copy p{margin:0}
+.copy p+p{margin-top:.8rem}
+
+/* playground */
+.field{display:grid;gap:.35rem;margin-top:1.6rem}
+.field label{display:flex;justify-content:space-between;align-items:baseline;font-size:.9375rem}
+.field output{font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--ink);border-radius:2px}
+input[type=range]::-moz-range-track{height:2px;background:var(--ink);border-radius:2px}
+#abbe::-webkit-slider-runnable-track{height:3px;background:var(--spectrum)}
+#abbe::-moz-range-track{height:3px;background:var(--spectrum)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--ink);margin-top:-9px}
+#abbe::-webkit-slider-thumb{margin-top:-8.5px}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--paper);border:2px solid var(--ink)}
+input[type=range]:focus-visible{outline:none}
+input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--ink)}
+input[type=range]:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--ink)}
+.shapes{border:0;padding:0;margin:1.6rem 0 0;display:flex;flex-wrap:wrap;gap:.4rem}
+.shapes legend{font-size:.9375rem;padding:0;margin-bottom:.55rem;float:left;width:100%}
+.shapes input{position:absolute;opacity:0;pointer-events:none}
+.shapes label{padding:.42rem .95rem;border:1px solid var(--rule);border-radius:999px;font-size:.9375rem;cursor:pointer;transition:background-color .2s,color .2s,border-color .2s;background:color-mix(in oklab,var(--paper) 70%,transparent)}
+.shapes label:hover{border-color:var(--ink)}
+.shapes input:checked+label{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.shapes input:focus-visible+label{outline:2px solid var(--ink);outline-offset:2px}
+.results{display:grid;grid-template-columns:1fr auto;gap:.3rem 1.5rem;margin:1.75rem 0 0;padding-top:1rem;border-top:1px solid var(--rule);font-size:.9375rem}
+.results dt{color:var(--muted)}
+.results dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+
+/* colophon */
+.colophon{padding:18svh 6vw 16svh;scroll-snap-align:end}
+.colophon .copy{max-width:min(52ch,46vw)}
+.colophon h2{font-size:clamp(2rem,3.6vw,3rem)}
+.colophon p{margin-top:1.1rem}
+.live{color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* rock crystal: the stage is dark in either color scheme */
+.stage-sec{--paper:#06070A;--ink:#ECEEF2;--muted:#9AA1AD;--rule:#2A303B;color:var(--ink)}
+
+/* live instrument readout */
+.readout{position:fixed;z-index:2;right:max(20px,3vw);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);display:grid;grid-template-columns:auto auto;gap:.15rem 1.5rem;margin:0;font-size:.8125rem;line-height:1.5;font-variant-numeric:tabular-nums;pointer-events:none}
+.readout{color:var(--ink);transition:color .5s}
+.readout dt{color:var(--muted);transition:color .5s}
+:root.stage .readout{--ink:#ECEEF2;--muted:#9AA1AD;--rule:#2A303B}
+.readout dd{margin:0;text-align:right}
+.spread{grid-column:1/-1;height:3px;width:132px;justify-self:end;margin-top:.45rem;position:relative}
+.spread::before{content:"";position:absolute;inset:0;background:var(--rule);opacity:.6}
+.spread i{position:absolute;right:0;top:0;bottom:0;width:30%;background:var(--spectrum);transition:width .15s linear}
+
+/* no WebGL */
+.no-gl .hero{flex-direction:column;justify-content:flex-end;align-items:flex-start;gap:4vh}
+.no-gl .hero h1{position:static;width:auto;height:auto;clip:auto;font-family:var(--display);font-size:18vw;line-height:.9;letter-spacing:-.045em;margin:0}
+
+@media (max-width:820px),(max-aspect-ratio:9/10){
+  .mat{align-items:end;padding:52svh 5vw 8svh}
+  .copy,.colophon .copy{max-width:none;background:color-mix(in oklab,var(--paper) 80%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);padding:1.25rem 1.25rem 1.4rem;margin:0 -.25rem;border-radius:16px}
+  .hero{padding:0 6vw calc(7svh + env(safe-area-inset-bottom,0px))}
+  .readout{display:none}
+  .colophon{padding:40svh 5vw 10svh}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<main>
+  <section class="hero" data-i="0">
+    <h1 class="sr">Dispersion</h1>
+    <p>White light is every color moving together. Glass slows each one by a slightly different amount, so wherever its surface curves, they part ways. <span class="only-mouse">Move your pointer to pull at the glass</span><span class="only-touch">Tap anywhere to pull at the glass</span>; scroll to change what it's made of.</p>
+  </section>
+
+  <section class="mat" data-i="1">
+    <div class="copy">
+      <h2>Water</h2>
+      <p class="spec">Refractive index 1.333, Abbe number 55.7</p>
+      <p>A rainbow is this effect at the scale of weather. Each raindrop sends red light back at about 42° and violet at about 40°, so the colors reach you from different rings of the sky.</p>
+    </div>
+  </section>
+
+  <section class="mat" data-i="2">
+    <div class="copy">
+      <h2>Crown glass</h2>
+      <p class="spec">Schott N-BK7. Refractive index 1.517, Abbe number 64.2</p>
+      <p>The everyday glass of lenses. A high Abbe number means low dispersion: colors stay close together, which is what a camera, a microscope or a pair of glasses needs.</p>
+    </div>
+  </section>
+
+  <section class="mat" data-i="3">
+    <div class="copy">
+      <h2>Dense flint</h2>
+      <p class="spec">Schott N-SF11. Refractive index 1.785, Abbe number 25.7</p>
+      <p>Heavy metal oxides make it bend light hard and spread it wide. On its own it smears color. Cemented to a crown lens, its error cancels the crown's, and the pair brings red and blue to nearly one focus. Telescopes have relied on that pairing since the 1750s.</p>
+    </div>
+  </section>
+
+  <section class="mat" data-i="4">
+    <div class="copy">
+      <h2>Diamond</h2>
+      <p class="spec">Refractive index 2.417, Abbe number about 55</p>
+      <p>Its dispersion is close to water's. The fire comes from the index and the cut: light meeting a facet more than 24.4° from straight on can't escape, so it bounces inside until it leaves through the top at a steep angle, where small differences in index become wide ones.</p>
+    </div>
+  </section>
+
+  <section class="mat stage-sec" data-i="5">
+    <div class="copy">
+      <h2>Rock crystal</h2>
+      <p class="spec">Clear quartz. Refractive index 1.544, Abbe number 69.9</p>
+      <p>The original crystal. The Greeks called it krystallos, ice, believing it was water frozen too hard to ever thaw. Quartz barely spreads color on its own; the sparkle here comes from the cut. Dozens of small facets each catch the overhead lights and throw them back at their own angle, so every few degrees of turn sets a different group flashing.</p>
+      <p>It also splits light a second way. Quartz is birefringent: depending on its polarization, a ray meets an index of 1.544 or 1.553.</p>
+    </div>
+  </section>
+
+  <section class="mat" data-i="6" id="play">
+    <div class="copy">
+      <h2>Make your own</h2>
+      <p class="spec">Most clear materials fall between an index of 1.3 and 2.4, and an Abbe number of 20 to 90. The lower the Abbe number, the wider the colors spread.</p>
+      <div class="field">
+        <label for="index">Refractive index <output id="indexOut" for="index">1.620</output></label>
+        <input id="index" type="range" min="1.30" max="2.60" step="0.001" value="1.620">
+      </div>
+      <div class="field">
+        <label for="abbe">Abbe number <output id="abbeOut" for="abbe">30.0</output></label>
+        <input id="abbe" type="range" min="15" max="90" step="0.1" value="30">
+      </div>
+      <fieldset class="shapes">
+        <legend>Shape</legend>
+        <input type="radio" name="shape" id="s-drop" value="drop"><label for="s-drop">Drop</label>
+        <input type="radio" name="shape" id="s-lens" value="lens"><label for="s-lens">Lens</label>
+        <input type="radio" name="shape" id="s-prism" value="prism" checked><label for="s-prism">Prism</label>
+        <input type="radio" name="shape" id="s-gem" value="gem"><label for="s-gem">Gem</label>
+        <input type="radio" name="shape" id="s-crystal" value="crystal"><label for="s-crystal">Crystal</label>
+      </fieldset>
+      <dl class="results">
+        <dt>Light trapped beyond</dt><dd id="rCrit">38.1°</dd>
+        <dt>Spread, n<sub>F</sub> − n<sub>C</sub></dt><dd id="rSpread">0.0207</dd>
+        <dt>Closest real material</dt><dd id="rNear">F2 flint</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="colophon" data-i="6">
+    <div class="copy">
+      <h2>How this is drawn</h2>
+      <p>There are no images or 3D models on this page. One fragment shader describes the glass as a distance field, follows each ray into it, bounces the ray off the inner faces when it can't escape, then refracts it out at seven wavelengths and blends them back into color. The shadow and its bright core are traced the same way. Dispersion is drawn three times stronger than life so it reads on a screen.</p>
+      <p class="live" id="live">Measuring…</p>
+    </div>
+  </section>
+</main>
+
+<dl class="readout" id="readout">
+  <dt>Refractive index</dt><dd id="oN">1.600</dd>
+  <dt>Abbe number</dt><dd id="oV">30.0</dd>
+  <dt>Spread</dt><dd id="oD">0.0200</dd>
+  <div class="spread" aria-hidden="true"><i id="oBar"></i></div>
+</dl>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const root = document.documentElement;
+const canvas = $('#gl');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(hover: none)').matches;
+
+/* ---------- materials ---------- */
+const SHAPES = { drop:[1,0,0,0,0], lens:[0,1,0,0,0], prism:[0,0,1,0,0], gem:[0,0,0,1,0], crystal:[0,0,0,0,1] };
+const play = { n:1.62, V:30, shape:'prism' };
+const SECTIONS = [
+  { word:'Dispersion', n:1.60, V:30,    w:SHAPES.drop,  abs:[.02,.02,.02], tilt:0 },
+  { word:'Water',      n:1.333,V:55.7,  w:SHAPES.drop,  abs:[.20,.06,.025], tilt:0 },
+  { word:'Crown',      n:1.5168,V:64.17,w:SHAPES.lens,  abs:[.05,.012,.04], tilt:0 },
+  { word:'Flint',      n:1.7847,V:25.68,w:SHAPES.prism, abs:[.015,.03,.11], tilt:.16 },
+  { word:'Diamond',    n:2.417,V:55.3,  w:SHAPES.gem,   abs:[0,0,0],       tilt:.58 },
+  { word:'CRYSTAL',    n:1.5443,V:69.9, w:SHAPES.crystal,abs:[0,0,0],      tilt:0, stage:true },
+  { chart:true,        play:true,                       abs:[.015,.015,.015] },
+];
+const TILT = { drop:0, lens:0, prism:.16, gem:.58, crystal:0 };
+const REAL = [
+  ['Water',1.333,55.7],['Fused silica',1.4585,67.8],['Quartz',1.5443,69.9],['N-BK7 crown',1.5168,64.17],
+  ['F2 flint',1.62,36.37],['Sapphire',1.768,72.2],['N-SF11 flint',1.7847,25.68],['Diamond',2.417,55.3]
+];
+function preset(i){
+  const S = SECTIONS[i];
+  if (S.play) return { n:play.n, V:play.V, w:SHAPES[play.shape], abs:S.abs, tilt:TILT[play.shape] };
+  return S;
+}
+
+/* ---------- playground UI ---------- */
+const iN = $('#index'), iV = $('#abbe');
+function nearest(n,V){
+  let best=null, bd=1e9;
+  for (const [name,rn,rv] of REAL){ const d=((n-rn)/.25)**2+((V-rv)/18)**2; if(d<bd){bd=d;best=name;} }
+  return best;
+}
+function syncPlay(){
+  play.n = +iN.value; play.V = +iV.value;
+  play.shape = document.querySelector('input[name=shape]:checked').value;
+  $('#indexOut').textContent = play.n.toFixed(3);
+  $('#abbeOut').textContent = play.V.toFixed(1);
+  $('#rCrit').textContent = (Math.asin(1/play.n)*180/Math.PI).toFixed(1)+'°';
+  $('#rSpread').textContent = ((play.n-1)/play.V).toFixed(4);
+  $('#rNear').textContent = nearest(play.n, play.V);
+}
+iN.addEventListener('input', syncPlay); iV.addEventListener('input', syncPlay);
+document.querySelectorAll('input[name=shape]').forEach(r => r.addEventListener('change', syncPlay));
+syncPlay();
+
+/* ---------- WebGL ---------- */
+const gl = canvas.getContext('webgl2', { antialias:false, alpha:false, depth:false, stencil:false, powerPreference:'high-performance' });
+if (!gl) { root.classList.add('no-gl'); canvas.remove(); return; }
+
+const VS = `#version 300 es
+void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); gl_Position = vec4(p*2.0-1.0, 0.0, 1.0); }`;
+
+const FS = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uTime;
+uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uMix;
+uniform vec3 uObj; uniform float uS; uniform vec4 uW; uniform float uC;
+uniform vec3 uSat; uniform float uSatR;
+uniform float uA; uniform float uB; uniform float uN; uniform float uDn;
+uniform vec3 uAbs; uniform float uSpin; uniform float uTilt;
+uniform float uDark; uniform float uCaustic;
+uniform float uStage; uniform float uFloorY;
+out vec4 fragColor;
+#define CAMZ 4.0
+#define K 0.31530734
+#define PLANE -1.0
+#define TAU 6.28318531
+
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,s,-s,c); }
+float smin(float a,float b,float k){ float h=clamp(0.5+0.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+float smax(float a,float b,float k){ return -smin(-a,-b,k); }
+
+float sdBlob(vec3 p){
+  p.y *= 1.05;
+  float d = length(p) - 0.64;
+  d += 0.032*sin(p.x*4.6+uTime*0.9)*sin(p.y*4.1+uTime*1.13)*sin(p.z*4.9+uTime*0.71);
+  return d;
+}
+float sdLens(vec3 p){
+  float R=1.32, c=1.06;
+  return smax(length(p-vec3(0.,0.,-c))-R, length(p+vec3(0.,0.,-c))-R, 0.05);
+}
+float sdPrism(vec3 p){
+  vec3 q = vec3(p.x, p.z, p.y);
+  vec3 a = abs(q);
+  return max(a.z-0.62, max(a.x*0.866025+q.y*0.5, -q.y)-0.47) - 0.03;
+}
+float sdGem(vec3 p){
+  p.y += 0.08;
+  float r = length(p.xz);
+  float ang = atan(p.z, p.x);
+  float sec = TAU/8.;
+  float a1 = mod(ang+sec*0.5, sec)-sec*0.5;
+  float a2 = mod(ang, sec)-sec*0.5;
+  vec2 q1 = vec2(r*cos(a1), p.y);
+  vec2 q2 = vec2(r*cos(a2), p.y);
+  float girdle = r - 0.74;
+  float table = p.y - 0.24;
+  float crown = dot(q1 - vec2(0.74, 0.03), normalize(vec2(0.66, 1.0)));
+  float pav   = dot(q2 - vec2(0.74,-0.03), normalize(vec2(0.88,-1.0)));
+  return max(max(girdle, table), max(crown, pav));
+}
+// nine-sided cut pyramid; the micro-facets live in the normals (facetN)
+float sdCrystal(vec3 p){
+  float r = length(p.xz);
+  float ang = atan(p.z, p.x);
+  float sec = TAU/9.;
+  float a = mod(ang+sec*0.5, sec)-sec*0.5;
+  vec2 q = vec2(r*cos(a), p.y);
+  float side = dot(q - vec2(0., 0.86), normalize(vec2(1.45, 0.78)));
+  return max(side, -p.y - 0.6);
+}
+float shapeSD(vec3 q){
+  float d = 0.;
+  if(uW.x>0.001) d += uW.x*sdBlob(q);
+  if(uW.y>0.001) d += uW.y*sdLens(q);
+  if(uW.z>0.001) d += uW.z*sdPrism(q);
+  if(uW.w>0.001) d += uW.w*sdGem(q);
+  if(uC>0.001)   d += uC*sdCrystal(q);
+  return d;
+}
+vec3 toLocal(vec3 p){
+  vec3 q = (p-uObj)/uS;
+  q.yz = rot(uTilt)*q.yz;
+  q.xz = rot(uSpin)*q.xz;
+  return q;
+}
+float map(vec3 p){
+  float d = shapeSD(toLocal(p))*uS;
+  float s = length(p-uSat)-uSatR;
+  return smin(d, s, 0.24*uS);
+}
+vec3 calcN(vec3 p){
+  vec2 e = vec2(1.,-1.)*0.0012;
+  return normalize(e.xyy*map(p+e.xyy)+e.yyx*map(p+e.yyx)+e.yxy*map(p+e.yxy)+e.xxx*map(p+e.xxx));
+}
+vec3 hash3(vec3 p){
+  p = vec3(dot(p,vec3(127.1,311.7,74.7)), dot(p,vec3(269.5,183.3,246.1)), dot(p,vec3(113.5,271.9,124.6)));
+  return fract(sin(p)*43758.5453);
+}
+// 3D Voronoi cell -> one random tilt per cell = flat micro-facets
+vec3 facetJitter(vec3 q){
+  vec3 g = floor(q), f = fract(q); float best = 1e9; vec3 id = g;
+  for(int z=-1;z<=1;z++) for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){
+    vec3 o = vec3(float(x),float(y),float(z));
+    vec3 r = o + hash3(g+o) - f; float d = dot(r,r);
+    if(d<best){ best=d; id=g+o; }
+  }
+  return hash3(id*1.37+11.)*2.-1.;
+}
+vec3 facetN(vec3 p, vec3 n){
+  if(uC<0.01) return n;
+  return normalize(n + uC*0.5*facetJitter(toLocal(p)*8.0));
+}
+vec2 proj(vec3 P){ vec2 s = P.xy/((CAMZ-P.z)*K); return vec2(s.x*uRes.y/uRes.x, s.y)*0.5+0.5; }
+vec3 bgTex(vec2 uv){ return mix(texture(uTexA,uv).rgb, texture(uTexB,uv).rgb, uMix); }
+vec3 envStudio(vec3 d){
+  vec3 c = mix(vec3(0.05,0.055,0.07), vec3(0.83,0.85,0.89), smoothstep(-0.5,0.7,d.y));
+  c *= mix(1.0, 0.42, uDark);
+  float s1 = smoothstep(0.16,0.02,abs(d.x+0.5))*smoothstep(0.0,0.45,d.y);
+  float s2 = smoothstep(0.07,0.0,abs(d.y-0.42))*smoothstep(-0.1,0.5,d.x);
+  float s3 = smoothstep(0.25,0.0,length(d.xy-vec2(0.55,0.62)));
+  return c + vec3(1.0,0.99,0.97)*(s1*1.3+s2*0.9+s3*0.6);
+}
+// dark stage: a ring of vertical spotlights, an overhead key and a frontal fill
+vec3 envStage(vec3 d){
+  float a = atan(d.x, -d.z);
+  float beams = pow(max(0., cos(a*5.0)), 50.) * smoothstep(-0.05, 0.5, d.y);
+  float top = smoothstep(0.5, 0.95, d.y);
+  float front = pow(max(0., dot(d, normalize(vec3(0.25,0.35,1.0)))), 24.);
+  float key = pow(max(0., dot(d, normalize(vec3(-0.2,1.0,0.35)))), 6.);
+  return vec3(0.012,0.013,0.017) + vec3(0.93,0.96,1.0)*(beams*5.0 + top*4.0 + front*2.6 + key*1.6);
+}
+vec3 env(vec3 d){
+  vec3 c = envStudio(d);
+  if(uStage>0.001) c = mix(c, envStage(d), uStage);
+  return c;
+}
+vec3 bgAlong(vec3 P, vec3 d){
+  if(d.z > -0.05) return env(d);
+  float t = (PLANE-P.z)/d.z;
+  return bgTex(proj(P+d*t));
+}
+float bump(float t,float c,float w){ float x=(t-c)/w; return max(0.,1.-x*x); }
+vec3 spec(float t){ return vec3(bump(t,0.83,0.3)+0.3*bump(t,0.0,0.14), bump(t,0.52,0.28), bump(t,0.17,0.25)); }
+float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+bool sphHit(vec3 ro, vec3 rd, vec3 c, float r, out vec2 h2){
+  vec3 oc = ro-c; float b = dot(oc,rd); float h = b*b-(dot(oc,oc)-r*r);
+  if(h<0.) return false; h = sqrt(h); h2 = vec2(-b-h,-b+h); return h2.y>0.;
+}
+
+// full glass shading for a surface point P hit along rd
+vec3 shadeGlass(vec3 P, vec3 rd){
+  vec3 L = normalize(vec3(-0.32,0.48,0.82));
+  vec3 N0 = calcN(P);
+  vec3 N = facetN(P, N0);
+  if(dot(rd,N) > -0.05) N = N0;
+  float cosi = clamp(dot(-rd,N),0.,1.);
+  float F0 = pow((uN-1.)/(uN+1.),2.);
+  float F = F0+(1.-F0)*pow(1.-cosi,5.);
+  vec3 d = refract(rd,N,1./uN);
+  vec3 q = P - N0*0.003;
+  float len = 0.;
+  vec3 eN = N0;
+  for(int b=0;b<3;b++){
+    float s = 0.004;
+    for(int i=0;i<56;i++){
+      float h = -map(q+d*s);
+      if(h<0.0006) break;
+      s += max(h*0.9,0.003);
+      if(s>3.) break;
+    }
+    q += d*s; len += s;
+    vec3 e0 = calcN(q);
+    eN = facetN(q, e0);
+    if(dot(d,eN) < 0.05) eN = e0;
+    vec3 r = refract(d,-eN,uN);
+    if(dot(r,r)>0.0001 || b==2) break;
+    d = reflect(d,eN);
+    q -= e0*0.003;
+  }
+  vec3 acc = vec3(0.), ws = vec3(0.);
+  for(int i=0;i<7;i++){
+    float k = float(i)/6.;
+    float lam = mix(0.40,0.70,k);
+    float n = uA+uB/(lam*lam);
+    vec3 w = spec(k);
+    vec3 r = refract(d,-eN,n);
+    vec3 c = dot(r,r)<0.0001 ? env(reflect(d,eN))*0.85 : bgAlong(q+eN*0.003,r);
+    acc += c*w; ws += w;
+  }
+  vec3 trans = acc/ws * exp(-uAbs*len/max(uS,0.05));
+  trans *= 1. + uStage*1.7;
+  vec3 R = reflect(rd,N);
+  vec3 col = mix(trans, env(R), F);
+  col += pow(max(dot(R,L),0.),90.)*1.6 + pow(max(dot(R,normalize(vec3(0.6,0.55,0.6))),0.),40.)*0.35;
+  return col;
+}
+
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 p = (frag-0.5*uRes)/(0.5*uRes.y);
+  vec3 ro = vec3(0.,0.,CAMZ);
+  vec3 rd = normalize(vec3(p*K,-1.));
+  vec3 L = normalize(vec3(-0.32,0.48,0.82));
+  vec3 col;
+
+  float t0 = 1e9, t1 = -1.; vec2 bh;
+  if(sphHit(ro,rd,uObj,1.25*uS,bh)){ t0=min(t0,max(bh.x,0.)); t1=max(t1,bh.y); }
+  if(sphHit(ro,rd,uSat,uSatR+0.3*uS,bh)){ t0=min(t0,max(bh.x,0.)); t1=max(t1,bh.y); }
+
+  bool hit = false; float t = t0;
+  if(t1 > 0. && uS > 0.002){
+    for(int i=0;i<96;i++){
+      float d = map(ro+rd*t);
+      if(d<0.0006){ hit=true; break; }
+      t += d*0.9;
+      if(t>t1) break;
+    }
+  }
+
+  if(hit){
+    col = shadeGlass(ro+rd*t, rd);
+  } else {
+    float tp = (PLANE-ro.z)/rd.z;
+    vec3 P = ro+rd*tp;
+    col = bgTex(frag/uRes);
+    // contact shadow + caustic on the back wall (studio sections only)
+    vec3 v1 = uObj-P; float c1 = dot(v1,L); float dd1 = length(v1-L*c1);
+    vec3 v2 = uSat-P; float c2 = dot(v2,L); float dd2 = length(v2-L*c2);
+    if(uStage < 0.999 && uS > 0.002 && (dd1<1.35*uS || dd2<uSatR+0.35*uS)){
+      float m = 1e3, sh = 1., s = 0.05;
+      for(int i=0;i<48;i++){
+        float h = map(P+L*s);
+        m = min(m,h);
+        if(h>0.) sh = min(sh, 10.*h/s);
+        s += clamp(abs(h)*0.85,0.008,0.25);
+        if(s>6.) break;
+      }
+      float inside = smoothstep(0.0,-0.04*uS,m);
+      float occl = (1.-clamp(sh,0.,1.))*(1.-inside);
+      float ring = exp(-abs(m)/(0.035*uS));
+      vec3 cs = col;
+      cs *= 1. - 0.16*occl - 0.30*ring;
+      cs *= mix(1., 0.86, inside);
+      float base = -m/uS;
+      float fr = 1.+uDn*1.6;
+      vec3 foc = vec3(smoothstep(0.10,0.5,base), smoothstep(0.10,0.5,base*fr), smoothstep(0.10,0.5,base*fr*fr));
+      foc = foc*foc*foc;
+      cs += foc*uCaustic*(0.55+(uN-1.)*0.45);
+      col = mix(cs, col, uStage);
+    }
+    // polished stage floor with a traced mirror reflection
+    if(uStage > 0.001 && rd.y < -0.0001){
+      float tf = (uFloorY-ro.y)/rd.y;
+      if(tf > 0. && tf < tp){
+        vec3 Pf = ro+rd*tf;
+        vec3 rr = reflect(rd, vec3(0.,1.,0.));
+        vec3 refl = vec3(0.);
+        bool rh = false; float rt = 0.;
+        if(sphHit(Pf,rr,uObj,1.25*uS,bh)){
+          rt = max(bh.x,0.);
+          for(int i=0;i<64;i++){
+            float d = map(Pf+rr*rt);
+            if(d<0.001){ rh=true; break; }
+            rt += d*0.9;
+            if(rt>bh.y) break;
+          }
+        }
+        if(rh) refl = shadeGlass(Pf+rr*rt, rr);
+        else if(rr.z < -0.01){ float tb = (PLANE-Pf.z)/rr.z; refl = bgTex(proj(Pf+rr*tb))*0.22; }
+        float dist = length(Pf.xz-uObj.xz)/uS;
+        float fade = mix(0.4, 0.2, smoothstep(0.,3.,dist));
+        vec3 fc = vec3(0.006,0.007,0.009) + refl*fade + vec3(0.72,0.8,0.95)*exp(-dist*2.2)*0.2;
+        float blend = smoothstep(0.0, 0.9, Pf.z - PLANE);
+        col = mix(col, mix(col, fc, blend), uStage);
+      }
+    }
+  }
+  // bloom-like halo around the lit crystal
+  if(uStage > 0.001 && uS > 0.002){
+    vec3 v = uObj-ro; float tc = dot(v,rd); float dr = length(v-rd*tc)/uS;
+    col += uStage*vec3(0.82,0.88,1.0)*(0.3*exp(-max(dr-0.2,0.)*2.0) + 0.12*exp(-dr*0.8));
+  }
+  col += (hash(frag+fract(uTime*0.37)*91.7)-0.5)*0.022;
+  fragColor = vec4(clamp(col,0.,1.),1.);
+}`;
+
+
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; }
+  return s;
+}
+const vs = compile(gl.VERTEX_SHADER, VS), fs = compile(gl.FRAGMENT_SHADER, FS);
+const prog = gl.createProgram();
+if (vs && fs) { gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); }
+if (!vs || !fs || !gl.getProgramParameter(prog, gl.LINK_STATUS)) { root.classList.add('no-gl'); canvas.remove(); return; }
+gl.useProgram(prog);
+gl.bindVertexArray(gl.createVertexArray());
+const U = {};
+for (const n of ['uRes','uTime','uTexA','uTexB','uMix','uObj','uS','uW','uC','uStage','uFloorY','uSat','uSatR','uA','uB','uN','uDn','uAbs','uSpin','uTilt','uDark','uCaustic'])
+  U[n] = gl.getUniformLocation(prog, n);
+gl.uniform1i(U.uTexA, 0); gl.uniform1i(U.uTexB, 1);
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+/* ---------- background textures (type + test patterns) ---------- */
+const CAMZ = 4, K = 0.31530734;
+let dpr = Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2);
+let W = 1, H = 1;
+const FAM = '"Bricolage Grotesque", "Arial Narrow", sans-serif';
+let C = {};
+function readColors(){
+  const cs = getComputedStyle(root);
+  const g = v => cs.getPropertyValue(v).trim();
+  C.paper = g('--paper'); C.ink = g('--ink');
+  const h = C.ink.replace('#',''); const rgb = [0,2,4].map(i => parseInt(h.substr(i,2),16));
+  C.dot = `rgba(${rgb.join(',')},0.22)`;
+  const ph = C.paper.replace('#',''); const pr = [0,2,4].map(i => parseInt(ph.substr(i,2),16)/255);
+  C.dark = (0.2126*pr[0]+0.7152*pr[1]+0.0722*pr[2]) < 0.5 ? 1 : 0;
+}
+readColors();
+
+function makeSlot(){
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return { i:-1, t, c:document.createElement('canvas') };
+}
+const slots = [makeSlot(), makeSlot()];
+
+function layoutFor(i){
+  const a = W/H, halfH = CAMZ*K, halfW = halfH*a, mobile = a < 0.9 || W/dpr < 820;
+  if (mobile){
+    const s = Math.min(0.95, halfW*0.82/0.8);
+    return i === 0 ? { x:0, y:halfH*0.12, s } : { x:0, y:halfH*0.47, s:s*0.9 };
+  }
+  return i === 0 ? { x:0, y:0.04, s:1 } : { x:halfW*0.46, y:0.02, s:0.84 };
+}
+function toPx(x, y){ return [W/2 + x/(CAMZ*K)*H/2, H/2 - y/(CAMZ*K)*H/2]; }
+
+function setFont(x, size, wt = 700, ls = -0.045){
+  x.font = `${wt} ${size}px ${FAM}`;
+  if ('letterSpacing' in x) x.letterSpacing = `${(ls*size).toFixed(2)}px`;
+}
+function paint(c, idx){
+  const x = c.getContext('2d'), w = c.width, h = c.height;
+  x.setTransform(1,0,0,1,0,0);
+  const S = SECTIONS[idx], L = layoutFor(idx), [gx, gy] = toPx(L.x, L.y);
+  const mobile = W/H < 0.9 || W/dpr < 820;
+  const wt = S.stage ? 800 : 700, ls = S.stage ? -0.02 : -0.045;
+  if (S.stage){
+    // lights off: dark stage with vertical spotlight beams behind the crystal
+    const bg = x.createRadialGradient(gx, h*0.38, 0, gx, h*0.5, Math.max(w,h)*0.8);
+    bg.addColorStop(0, '#16181e'); bg.addColorStop(1, '#030304');
+    x.fillStyle = bg; x.fillRect(0,0,w,h);
+    const beams = [[-0.66,0.07,0.30],[-0.36,0.022,0.42],[0,0.1,0.34],[0.32,0.03,0.40],[0.6,0.06,0.28]];
+    for (const [ox, bw, a] of beams){
+      const bx = gx + ox*h*(mobile ? 0.55 : 1), hw = bw*h*(mobile ? 0.6 : 1);
+      const lg = x.createLinearGradient(bx-hw, 0, bx+hw, 0);
+      lg.addColorStop(0, 'rgba(190,200,220,0)'); lg.addColorStop(0.5, `rgba(205,214,232,${a})`); lg.addColorStop(1, 'rgba(190,200,220,0)');
+      x.fillStyle = lg; x.fillRect(bx-hw, 0, hw*2, h);
+    }
+    const fade = x.createLinearGradient(0, 0, 0, h*0.78);
+    fade.addColorStop(0, 'rgba(6,7,9,0.15)'); fade.addColorStop(0.45, 'rgba(6,7,9,0)'); fade.addColorStop(1, 'rgba(6,7,9,0.92)');
+    x.fillStyle = fade; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#E4E6EA';
+  } else {
+    x.fillStyle = C.paper; x.fillRect(0,0,w,h);
+    const step = Math.round(26*dpr), r = Math.max(1, Math.round(dpr*1.15));
+    x.fillStyle = C.dot;
+    for (let yy = step/2; yy < h; yy += step) for (let xx = step/2; xx < w; xx += step) x.fillRect(xx|0, yy|0, r, r);
+    x.fillStyle = C.ink;
+  }
+  if (S.word){
+    setFont(x, 100, wt, ls);
+    const unit = x.measureText(S.word).width / 100;
+    let size, cx = gx;
+    if (idx === 0) size = (w * (mobile ? 0.92 : 0.94)) / unit;
+    else if (mobile) size = Math.min(h*0.2, (w*0.86)/unit);
+    else {
+      size = Math.min(h*0.3, (w*0.58)/unit);
+      const tw = unit*size;
+      if (cx - tw/2 < w*0.4) cx = w*0.4 + tw/2;
+    }
+    setFont(x, size, wt, ls);
+    const m = x.measureText(S.word);
+    x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+    x.fillText(S.word, cx, gy + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent)/2);
+  } else if (S.chart){
+    const rad = 0.8*L.s/(CAMZ*K)*h/2;
+    const side = rad*2.5, x0 = gx - side/2, y0 = gy - side/2;
+    const per = Math.max(6*dpr, side/26);
+    for (let k = 0; k*per < side; k += 2) x.fillRect(x0 + k*per, y0, Math.min(per, side - k*per), side);
+    x.strokeStyle = C.ink; x.lineWidth = Math.max(1, 1.25*dpr);
+    x.strokeRect(x0 - per*0.75, y0 - per*0.75, side + per*1.5, side + per*1.5);
+  }
+}
+function slotsFor(a, b){
+  let sa = slots.find(s => s.i === a), sb = slots.find(s => s.i === b);
+  const fill = (s, i) => { paint(s.c, i); gl.bindTexture(gl.TEXTURE_2D, s.t); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,s.c); s.i = i; };
+  if (!sa){ sa = slots.find(s => s !== sb); fill(sa, a); }
+  if (!sb){ sb = (a === b) ? sa : slots.find(s => s !== sa); if (sb.i !== b) fill(sb, b); }
+  return [sa, sb];
+}
+function invalidate(){ slots.forEach(s => s.i = -1); }
+
+/* ---------- scroll → material progress ---------- */
+const secs = [...document.querySelectorAll('main > section.mat, main > section.hero')];
+let centers = [];
+function recalc(){ centers = secs.map(s => s.offsetTop + s.offsetHeight/2); }
+const sstep = (a,b,x) => { const t = Math.min(1, Math.max(0, (x-a)/(b-a))); return t*t*(3-2*t); };
+function progress(){
+  const y = scrollY + innerHeight/2, n = centers.length;
+  if (y <= centers[0]) return { i:0, j:0, f:0 };
+  if (y >= centers[n-1]) return { i:n-1, j:n-1, f:0 };
+  let i = 0; while (i < n-2 && y >= centers[i+1]) i++;
+  return { i, j:i+1, f:sstep(0.28, 0.72, (y-centers[i])/(centers[i+1]-centers[i])) };
+}
+
+function resize(){
+  W = Math.max(2, Math.round(innerWidth*dpr)); H = Math.max(2, Math.round(innerHeight*dpr));
+  canvas.width = W; canvas.height = H;
+  slots.forEach(s => { s.c.width = W; s.c.height = H; s.i = -1; });
+  recalc();
+}
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(resize, 120); });
+resize();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); invalidate(); });
+
+/* ---------- pointer ---------- */
+const ptr = { active:false, wx:0, wy:0, nx:0, ny:0, until:0, tx:0, ty:0 };
+function setPtr(e){
+  const sx = (e.clientX - innerWidth/2)/(innerHeight/2), sy = -(e.clientY - innerHeight/2)/(innerHeight/2);
+  const k = (CAMZ - 0.25)*K;
+  ptr.wx = sx*k; ptr.wy = sy*k;
+  ptr.nx = Math.max(-1, Math.min(1, sx/(innerWidth/innerHeight))); ptr.ny = Math.max(-1, Math.min(1, sy));
+}
+addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; setPtr(e); ptr.active = true; }, { passive:true });
+addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; setPtr(e); ptr.active = true; ptr.until = performance.now() + 1600; }, { passive:true });
+document.addEventListener('mouseout', e => { if (!e.relatedTarget) ptr.active = false; });
+addEventListener('blur', () => ptr.active = false);
+
+/* ---------- readouts ---------- */
+const oN = $('#oN'), oV = $('#oV'), oD = $('#oD'), oBar = $('#oBar'), live = $('#live');
+let gpu = gl.getParameter(gl.RENDERER) || '';
+try { const ext = gl.getExtension('WEBGL_debug_renderer_info'); if (ext) gpu = gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || gpu; } catch(_){}
+{ const m = gpu.match(/^ANGLE \((?:[^,]+),\s*([^,]+)/); if (m) gpu = m[1];
+  gpu = gpu.replace(/^ANGLE [A-Za-z0-9]+ Renderer:\s*/,'').replace(/\s*(Direct3D|vs_\d|ps_\d|\(0x|OpenGL).*$/,'').trim() || 'your graphics chip'; }
+const lastTxt = {};
+const setTxt = (el, key, v) => { if (lastTxt[key] !== v){ lastTxt[key] = v; el.textContent = v; } };
+
+/* ---------- loop ---------- */
+const cur = { n:1.6, V:30, w:[1,0,0,0,0], abs:[.02,.02,.02], x:0, y:0, s:1, tilt:0, pnx:0, pny:0 };
+const sat = { x:0, y:0, z:0, vx:0, vy:0, vz:0 };
+let started = false, introAt = 0, last = performance.now(), t0 = last;
+let fAcc = 0, fN = 0, fpsShow = 0, liveAt = 0, adaptChecks = 0;
+const lerp = (a,b,t) => a + (b-a)*t;
+
+{ const L = layoutFor(0); cur.x = L.x; cur.y = L.y; cur.s = L.s; sat.x = L.x; sat.y = L.y; }
+function begin(){ if (!started){ started = true; introAt = performance.now(); } }
+Promise.race([document.fonts.load(`700 100px "Bricolage Grotesque"`), new Promise(r => setTimeout(r, 1500))])
+  .then(() => { invalidate(); recalc(); begin(); });
+setTimeout(begin, 1800);
+
+function frame(now){
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  const T = (now - t0)/1000;
+
+  const { i, j, f } = progress();
+  const A = preset(i), B = preset(j), LA = layoutFor(i), LB = layoutFor(j);
+  const k = reduce ? 1 : 1 - Math.exp(-dt*7);
+  cur.n += (lerp(A.n,B.n,f) - cur.n)*k;
+  cur.V += (lerp(A.V,B.V,f) - cur.V)*k;
+  cur.x += (lerp(LA.x,LB.x,f) - cur.x)*k;
+  cur.y += (lerp(LA.y,LB.y,f) - cur.y)*k;
+  cur.s += (lerp(LA.s,LB.s,f) - cur.s)*k;
+  cur.tilt += (lerp(A.tilt,B.tilt,f) - cur.tilt)*k;
+  for (let q = 0; q < 5; q++) cur.w[q] += (lerp(A.w[q],B.w[q],f) - cur.w[q])*k;
+  for (let q = 0; q < 3; q++) cur.abs[q] += (lerp(A.abs[q],B.abs[q],f) - cur.abs[q])*k;
+
+  // liquid entrance
+  let intro = 0;
+  if (started){
+    const e = (now - introAt)/1000;
+    intro = reduce ? 1 : 1 - Math.exp(-4.2*e)*Math.cos(6.5*e);
+  }
+  const s = Math.max(0.001, cur.s*intro);
+
+  // satellite droplet
+  if (ptr.active && coarse && now > ptr.until) ptr.active = false;
+  let tx, ty;
+  if (ptr.active){ tx = ptr.wx; ty = ptr.wy; }
+  else { const tt = reduce ? 0.9 : T; tx = cur.x + Math.cos(tt*0.55)*0.6*cur.s; ty = cur.y + Math.sin(tt*0.8)*0.4*cur.s; }
+  let dx = tx - cur.x, dy = ty - cur.y; const dl = Math.hypot(dx, dy), mx = 1.55*Math.max(cur.s, 0.35);
+  if (dl > mx){ dx *= mx/dl; dy *= mx/dl; }
+  tx = cur.x + dx; ty = cur.y + dy; const tz = 0.28*cur.s;
+  if (reduce){ sat.x = tx; sat.y = ty; sat.z = tz; }
+  else {
+    const damp = Math.exp(-dt*8.5);
+    sat.vx = (sat.vx + (tx - sat.x)*95*dt)*damp; sat.x += sat.vx*dt;
+    sat.vy = (sat.vy + (ty - sat.y)*95*dt)*damp; sat.y += sat.vy*dt;
+    sat.vz = (sat.vz + (tz - sat.z)*95*dt)*damp; sat.z += sat.vz*dt;
+  }
+  cur.pnx += ((ptr.active ? ptr.nx : 0) - cur.pnx)*(1 - Math.exp(-dt*3));
+  cur.pny += ((ptr.active ? ptr.ny : 0) - cur.pny)*(1 - Math.exp(-dt*3));
+
+  // Cauchy fit from n_d and V_d (dispersion drawn 3x)
+  const dn = (cur.n - 1)/cur.V * 3;
+  const Bc = dn/1.9103, Ac = cur.n - Bc/(0.5876*0.5876);
+  const wl = cur.w[1];
+  const spin = reduce ? 0.55 : T*0.32*(1 - wl) + wl*Math.sin(T*0.5)*0.6;
+
+  const stA = SECTIONS[i].stage ? 1 : 0, stB = SECTIONS[j].stage ? 1 : 0;
+  const stage = i === j ? stA : lerp(stA, stB, f);
+  root.classList.toggle('stage', stage > 0.5);
+  const [sa, sb] = slotsFor(i, j);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sa.t);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sb.t);
+
+  gl.viewport(0, 0, W, H);
+  gl.uniform2f(U.uRes, W, H);
+  gl.uniform1f(U.uTime, reduce ? 0 : T);
+  gl.uniform1f(U.uMix, i === j ? 0 : f);
+  gl.uniform3f(U.uObj, cur.x, cur.y, 0);
+  gl.uniform1f(U.uS, s);
+  gl.uniform4f(U.uW, cur.w[0], cur.w[1], cur.w[2], cur.w[3]);
+  gl.uniform1f(U.uC, cur.w[4]);
+  gl.uniform1f(U.uStage, stage);
+  gl.uniform1f(U.uFloorY, cur.y - 0.6*s - 0.004);
+  gl.uniform3f(U.uSat, sat.x, sat.y, sat.z);
+  gl.uniform1f(U.uSatR, 0.17*s);
+  gl.uniform1f(U.uA, Ac); gl.uniform1f(U.uB, Bc); gl.uniform1f(U.uN, cur.n); gl.uniform1f(U.uDn, dn);
+  gl.uniform3f(U.uAbs, ...cur.abs);
+  gl.uniform1f(U.uSpin, spin + cur.pnx*0.55);
+  gl.uniform1f(U.uTilt, cur.tilt + cur.pny*0.35*(1 - stage));
+  gl.uniform1f(U.uDark, C.dark);
+  gl.uniform1f(U.uCaustic, C.dark ? 0.75 : 0.5);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // instrument readout (true values, not the 3x drawing)
+  setTxt(oN, 'n', cur.n.toFixed(3));
+  setTxt(oV, 'v', cur.V.toFixed(1));
+  const real = (cur.n - 1)/cur.V;
+  setTxt(oD, 'd', real.toFixed(4));
+  oBar.style.width = Math.min(100, real/0.032*100).toFixed(1) + '%';
+
+  // performance: measure, adapt resolution, report
+  fAcc += dt; fN++;
+  if (fN >= 60){
+    const avg = fAcc/fN; fpsShow = Math.round(1/avg);
+    if (started && adaptChecks < 6 && avg > 0.024 && dpr > 0.75){ dpr = Math.max(0.75, dpr - 0.25); resize(); }
+    adaptChecks++; fAcc = 0; fN = 0;
+  }
+  if (now - liveAt > 600 && fpsShow){
+    liveAt = now;
+    setTxt(live, 'live', `Right now: ${fpsShow} frames per second, ${W.toLocaleString()} × ${H.toLocaleString()} pixels, on ${gpu}.`);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
