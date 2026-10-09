@@ -1,4 +1,5 @@
 **Project description**
+Live page [https://local.me.muz.li/oaviv/dispersion-2](https://me.muz.li/oaviv/dispersion-2)
 A live study of how glass splits white light. Every pixel is computed in real time by a single WebGL2 fragment shader.
 
 Built from scratch. There's no three.js, Babylon or any other 3D or WebGL library, and no framework or build step. The page loads no images, models or textures; everything you see is generated in the browser. The whole site is one 39 KB HTML file, about 15 KB over the wire. The scene is a roughly 270-line shader drawn in a single draw call per frame, with no post-processing passes. The only outside request is the web font.
